@@ -53,8 +53,8 @@
     </div>
 
     <script>
-        const API_KEY = '$2a$10$BncYbBjfZEbxfCtP8Aifl.mXXuGzJ4aqQ.qlkmSi/uY4XmoDen/Dy'; // API key
-        const BIN_ID = '67b5b460acd3cb34a8e80fe0'; // bin ID
+        const API_KEY = '$2a$10$BncYbBjfZEbxfCtP8Aifl.mXXuGzJ4aqQ.qlkmSi/uY4XmoDen/Dy';
+        const BIN_ID = '67b5b460acd3cb34a8e80fe0';
         
         let score = 0;
         const scoreElement = document.getElementById('score');
@@ -62,7 +62,6 @@
         const submitButton = document.getElementById('submitScore');
         const leaderboardList = document.getElementById('leaderboardList');
 
-        
         if (localStorage.getItem('gameScore')) {
             score = parseInt(localStorage.getItem('gameScore'));
             scoreElement.textContent = score;
@@ -83,42 +82,77 @@
         });
 
         async function submitScore(name, score) {
-            const leaderboard = await getLeaderboard();
-            leaderboard.push({ name, score });
-            leaderboard.sort((a, b) => b.score - a.score);
-            leaderboard.splice(10); 
+            try {
+                const currentData = await getLeaderboard();
+                const newEntry = {
+                    name: name,
+                    score: score,
+                    timestamp: new Date().toISOString()
+                };
 
-            await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Master-Key': API_KEY
-                },
-                body: JSON.stringify(leaderboard)
-            });
+                // Add new entry to leaderboard array
+                currentData.leaderboard.push(newEntry);
+                
+                // Sort by score (highest first)
+                currentData.leaderboard.sort((a, b) => b.score - a.score);
+                
+                // Keep only top 10 scores
+                currentData.leaderboard = currentData.leaderboard.slice(0, 10);
+
+                const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': API_KEY
+                    },
+                    body: JSON.stringify(currentData)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to update leaderboard');
+                }
+            } catch (error) {
+                console.error('Error submitting score:', error);
+                alert('Failed to submit score. Please try again.');
+            }
         }
 
         async function getLeaderboard() {
-            const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
-                headers: {
-                    'X-Master-Key': API_KEY
+            try {
+                const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+                    headers: {
+                        'X-Master-Key': API_KEY
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch leaderboard');
                 }
-            });
-            const data = await response.json();
-            return data.record || [];
+
+                const data = await response.json();
+                return data.record || { leaderboard: [] };
+            } catch (error) {
+                console.error('Error fetching leaderboard:', error);
+                return { leaderboard: [] };
+            }
         }
 
         async function updateLeaderboard() {
-            const leaderboard = await getLeaderboard();
-            leaderboardList.innerHTML = '';
-            leaderboard.forEach(entry => {
-                const li = document.createElement('li');
-                li.textContent = `${entry.name}: ${entry.score}`;
-                leaderboardList.appendChild(li);
-            });
+            try {
+                const data = await getLeaderboard();
+                leaderboardList.innerHTML = '';
+                
+                data.leaderboard.forEach(entry => {
+                    const li = document.createElement('li');
+                    li.textContent = `${entry.name}: ${entry.score}`;
+                    leaderboardList.appendChild(li);
+                });
+            } catch (error) {
+                console.error('Error updating leaderboard display:', error);
+            }
         }
 
-       
+        // Initial leaderboard update
         updateLeaderboard();
     </script>
 </body>
