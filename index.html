@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Click the Button Game with Leaderboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .game-container {
+            text-align: center;
+            background-color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        button {
+            font-size: 1rem;
+            padding: 0.5rem 1rem;
+            margin: 0.5rem;
+            cursor: pointer;
+        }
+        #score {
+            font-size: 2rem;
+            margin: 1rem 0;
+        }
+        #leaderboard {
+            margin-top: 1rem;
+            text-align: left;
+        }
+        #leaderboard h2 {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Click the Button Game</h1>
+        <p>Score: <span id="score">0</span></p>
+        <button id="clickButton">Click Me!</button>
+        <button id="submitScore">Submit Score</button>
+        <div id="leaderboard">
+            <h2>Leaderboard</h2>
+            <ol id="leaderboardList"></ol>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = '$2a$10$VomBasRFMBf3GqfLPsMVauH9.CjpOvSw7lnuwww647il2VFMd7qIC'; // API key
+        const BIN_ID = '67b5b460acd3cb34a8e80fe0'; // bin ID
+        
+        let score = 0;
+        const scoreElement = document.getElementById('score');
+        const clickButton = document.getElementById('clickButton');
+        const submitButton = document.getElementById('submitScore');
+        const leaderboardList = document.getElementById('leaderboardList');
+
+        
+        if (localStorage.getItem('gameScore')) {
+            score = parseInt(localStorage.getItem('gameScore'));
+            scoreElement.textContent = score;
+        }
+
+        clickButton.addEventListener('click', () => {
+            score++;
+            scoreElement.textContent = score;
+            localStorage.setItem('gameScore', score);
+        });
+
+        submitButton.addEventListener('click', async () => {
+            const playerName = prompt("Enter your name for the leaderboard:");
+            if (playerName) {
+                await submitScore(playerName, score);
+                await updateLeaderboard();
+            }
+        });
+
+        async function submitScore(name, score) {
+            const leaderboard = await getLeaderboard();
+            leaderboard.push({ name, score });
+            leaderboard.sort((a, b) => b.score - a.score);
+            leaderboard.splice(10); 
+
+            await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Master-Key': API_KEY
+                },
+                body: JSON.stringify(leaderboard)
+            });
+        }
+
+        async function getLeaderboard() {
+            const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+                headers: {
+                    'X-Master-Key': API_KEY
+                }
+            });
+            const data = await response.json();
+            return data.record || [];
+        }
+
+        async function updateLeaderboard() {
+            const leaderboard = await getLeaderboard();
+            leaderboardList.innerHTML = '';
+            leaderboard.forEach(entry => {
+                const li = document.createElement('li');
+                li.textContent = `${entry.name}: ${entry.score}`;
+                leaderboardList.appendChild(li);
+            });
+        }
+
+       
+        updateLeaderboard();
+    </script>
+</body>
+</html>
